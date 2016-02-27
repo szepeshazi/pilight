@@ -269,8 +269,8 @@ void dooyaDC90ScreenInit(void) {
 
 	options_add(&dooya_dc90_screen->options, 'd', "down", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
 	options_add(&dooya_dc90_screen->options, 'u', "up", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
-	options_add(&dooya_dc90_screen->options, 'i', "id", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "^(3[012]?|[012][0-9]|[0-9]{1})$");
-	options_add(&dooya_dc90_screen->options, 'c', "channel", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "^(3[012]?|[012][0-9]|[0-9]{1})$");
+	options_add(&dooya_dc90_screen->options, 'i', "id", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "[0-9]");
+	options_add(&dooya_dc90_screen->options, 'c', "channel", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "[0-9]");
 
 	dooya_dc90_screen->parseCode=&parseCode;
 	dooya_dc90_screen->createCode=&createCode;
