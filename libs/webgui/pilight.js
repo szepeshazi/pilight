@@ -35,6 +35,7 @@ var language_en = {
 	started: "Started",
 	toggling: "Toggling",
 	up: "Up",
+	stop: "Stop",
 	down: "Down",
 	update: "Update",
 	loading: "Loading",
@@ -54,6 +55,7 @@ var language_de = {
 	started: "Gestartet",
 	toggling: "schaltend",
 	up: "+",
+	stop: "Halt",
 	down: "-",
 	update: "Aktualisieren",
 	loading: "ladend",
@@ -73,6 +75,7 @@ var language_nl = {
 	started: "Gestart",
 	toggling: "Omzetten",
 	up: "Omhoog",
+	stop: "Ohmohgog",
 	down: "Omlaag",
 	update: "Bijwerken",
 	loading: "Verbinding maken",
@@ -91,6 +94,7 @@ var language_fr = {
 	started: "Démarré",
 	toggling: "En cours",
 	up: "Haut",
+	stop: "?",
 	down: "Bas",
 	update: "Mise à jour",
 	loading: "Chargement en cours",
@@ -361,11 +365,13 @@ function createScreenElement(sTabId, sDevId, aValues) {
 			oTab = $('#all');
 		}
 		if('name' in aValues) {
-			oTab.append($('<li  id="'+sDevId+'" class="screen" data-icon="false"><div class="name">'+aValues['name']+'</div><div id="'+sDevId+'_screen" class="screen" data-role="fieldcontain" data-type="horizontal"><fieldset data-role="controlgroup" class="controlgroup" data-type="horizontal" data-mini="true"><input type="radio" name="'+sDevId+'_screen" id="'+sDevId+'_screen_down" value="down" /><label for="'+sDevId+'_screen_down">'+language.down+'</label><input type="radio" name="'+sDevId+'_screen" id="'+sDevId+'_screen_up" value="up" /><label for="'+sDevId+'_screen_up">'+language.up+'</label></fieldset></div></li>'));
+			oTab.append($('<li  id="'+sDevId+'" class="screen" data-icon="false"><div class="name">'+aValues['name']+'</div><div id="'+sDevId+'_screen" class="screen" data-role="fieldcontain" data-type="horizontal"><fieldset data-role="controlgroup" class="controlgroup" data-type="horizontal" data-mini="true"><input type="radio" name="'+sDevId+'_screen" id="'+sDevId+'_screen_down" value="down" /><label for="'+sDevId+'_screen_down">'+language.down+'</label><input type="radio" name="'+sDevId+'_screen" id="'+sDevId+'_screen_stop" value="stop" /><label for="'+sDevId+'_screen_stop">'+language.stop+'</label><input type="radio" name="'+sDevId+'_screen" id="'+sDevId+'_screen_up" value="up" /><label for="'+sDevId+'_screen_up">'+language.up+'</label></fieldset></div></li>'));
 		}
 		$("div").trigger("create");
 		$('#'+sDevId+'_screen_down').checkboxradio();
+		$('#'+sDevId+'_screen_stop').checkboxradio();
 		$('#'+sDevId+'_screen_up').checkboxradio();
+		
 		$('#'+sDevId+'_screen_down').bind("change", function(event, ui) {
 			event.stopPropagation();
 			if('confirm' in aValues && aValues['confirm']) {
@@ -403,6 +409,45 @@ function createScreenElement(sTabId, sDevId, aValues) {
 				window.setTimeout(function() { bSending = false; }, 1000);
 			}
 		});
+		
+		$('#'+sDevId+'_screen_stop').bind("change", function(event, ui) {
+			event.stopPropagation();
+			if('confirm' in aValues && aValues['confirm']) {
+				if(window.confirm("Are you sure?") == false) {
+					return false;
+				}
+			}
+			i = 0;
+			oLabel = this.parentNode.getElementsByTagName('label')[0];
+			$(oLabel).removeClass('ui-btn-active');
+			x = window.setInterval(function() {
+				i++;
+				if(i%2 == 1)
+					$(oLabel).removeClass('ui-btn-active');
+				else
+					$(oLabel).addClass('ui-btn-active');
+				if(i==2)
+					window.clearInterval(x);
+			}, 100);
+
+			if(oWebsocket) {
+				if('all' in aValues && aValues['all'] == 1) {
+					var json = '{"action":"control","code":{"device":"'+sDevId+'","state":"'+this.value+'","values":{"all": 1}}}';
+				} else {
+					var json = '{"action":"control","code":{"device":"'+sDevId+'","state":"'+this.value+'"}}'
+				}
+				oWebsocket.send(json);
+			} else {
+				bSending = true;
+				if('all' in aValues && aValues['all'] == 1) {
+					$.get(sHTTPProtocol+'://'+location.host+'/control/control?device='+sDevId+'&state='+this.value+'&values[all]=1');
+				} else {
+					$.get(sHTTPProtocol+'://'+location.host+'/control?device='+sDevId+'&state='+this.value);
+				}
+				window.setTimeout(function() { bSending = false; }, 1000);
+			}
+		});
+		
 		$('#'+sDevId+'_screen_up').bind("change", function(event, ui) {
 			event.stopPropagation();
 			if('confirm' in aValues && aValues['confirm']) {

@@ -69,6 +69,7 @@
 #define DOOYA_DC90_SYNC2				1
 #define DOOYA_DC90_STATE_DOWN			51
 #define DOOYA_DC90_STATE_UP				17
+#define DOOYA_DC90_STATE_STOP			85
 #define DOOYA_INVALID_VALUE				-1
 
 static const int header[] = {4750, 1535};	// header signal
@@ -138,6 +139,8 @@ static void createMessage(int id, int channel, int state) {
 		json_append_member(dooya_dc90_screen->message, "state", json_mkstring("down"));
 	} else if (state == 1) {
 		json_append_member(dooya_dc90_screen->message, "state", json_mkstring("up"));
+	} else if (state == 2) {
+		json_append_member(dooya_dc90_screen->message, "state", json_mkstring("stop"));
 	}
 }
 
@@ -161,10 +164,12 @@ static void parseCode(void) {
 	int stateRaw = binToDecRev(binary, STATE_START, STATE_END);
 	int state = DOOYA_INVALID_VALUE;
 
-	if (stateRaw == 51) {
-		state = 1;
-	} else if (stateRaw == 17) {
+	if (stateRaw == DOOYA_DC90_STATE_UP) {
 		state = 0;
+	} else if (stateRaw == DOOYA_DC90_STATE_DOWN) {
+		state = 1;
+	} else if (stateRaw == DOOYA_DC90_STATE_STOP) {
+		state = 2;
 	}
 
 	if ((sync1 == DOOYA_DC90_SYNC1) && (sync2 == DOOYA_DC90_SYNC2) && (state != DOOYA_INVALID_VALUE)) {
@@ -207,8 +212,10 @@ static void createRawCode(int id, int channel, int state) {
 	int rawState;
 	if (state == 0) {
 		rawState = DOOYA_DC90_STATE_DOWN;
-	} else {
+	} else if (state == 1) {
 		rawState = DOOYA_DC90_STATE_UP;
+	} else {
+		rawState = DOOYA_DC90_STATE_STOP;
 	}
 	clearCode();
 	createHeader();
@@ -233,6 +240,8 @@ static int createCode(struct JsonNode *code) {
 		state = 0;
 	if(json_find_number(code, "up", &itmp) == 0)
 		state = 1;
+	if(json_find_number(code, "stop", &itmp) == 0)
+		state = 2;
 
 	if(id == DOOYA_INVALID_VALUE || channel == DOOYA_INVALID_VALUE || state == DOOYA_INVALID_VALUE) {
 		logprintf(LOG_ERR, "dooya_dc90_screen: insufficient number of arguments");
@@ -269,6 +278,7 @@ void dooyaDC90ScreenInit(void) {
 
 	options_add(&dooya_dc90_screen->options, 'd', "down", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
 	options_add(&dooya_dc90_screen->options, 'u', "up", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
+	options_add(&dooya_dc90_screen->options, 's', "stop", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
 	options_add(&dooya_dc90_screen->options, 'i', "id", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "[0-9]");
 	options_add(&dooya_dc90_screen->options, 'c', "channel", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "[0-9]");
 
