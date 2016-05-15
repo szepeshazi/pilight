@@ -45,9 +45,14 @@
 #define ID_END					27
 #define ID_LENGTH				ID_END - ID_START + 1
 
+// Unit bits in binary code
+#define UNIT_START				0
+#define UNIT_END				7
+#define UNIT_LENGTH				UNIT_END - UNIT_START + 1
+
 // Channel bits in binary code
-#define CHANNEL_START			0
-#define CHANNEL_END				7
+#define CHANNEL_START			28
+#define CHANNEL_END				31
 #define CHANNEL_LENGTH			CHANNEL_END - CHANNEL_START + 1
 
 // State bits in binary code
@@ -55,26 +60,23 @@
 #define STATE_END				39
 #define STATE_LENGTH			STATE_END - STATE_START + 1
 
-// Sync 1 bits in binary code
-#define SYNC1_START				8
-#define SYNC1_END				15
-#define SYNC1_LENGTH			SYNC1_END - SYNC1_START + 1
+// Sync bits in binary code
+#define SYNC_START				8
+#define SYNC_END				15
+#define SYNC_LENGTH				SYNC_END - SYNC_START + 1
 
-// Sync 2 bits in binary code
-#define SYNC2_START				28
-#define SYNC2_END				31
-#define SYNC2_LENGTH			SYNC2_END - SYNC2_START + 1
-
-#define DOOYA_DC90_SYNC1				6
-#define DOOYA_DC90_SYNC2				1
+#define DOOYA_DC90_SYNC				6
 #define DOOYA_DC90_STATE_DOWN			51
 #define DOOYA_DC90_STATE_UP				17
 #define DOOYA_DC90_STATE_STOP			85
+#define DOOYA_DEFAULT_CHANNEL			1
 #define DOOYA_INVALID_VALUE				-1
 
 static const int header[] = {4750, 1535};	// header signal
 static const int footer[] = {7775};			// footer signal
-static const int low[] = {320, 740};		// signal representing the low (0) bit
+//static const int low[] = {320, 740};		// signal representing the low (0) bit
+//static const int high[] = {680, 400};		// signal representing the high (1) bit
+static const int low[] = {310, 745};		// signal representing the low (0) bit
 static const int high[] = {680, 400};		// signal representing the high (1) bit
 
 static int binary[BINARY_LENGTH];
@@ -130,9 +132,9 @@ static int validate(void) {
 	return DOOYA_INVALID_VALUE;
 }
 
-static void createMessage(int id, int channel, int state) {
-
+static void createMessage(int unit, int id, int channel, int state) {
 	dooya_dc90_screen->message = json_mkobject();
+	json_append_member(dooya_dc90_screen->message, "unit", json_mknumber(unit, 0));
 	json_append_member(dooya_dc90_screen->message, "id", json_mknumber(id, 0));
 	json_append_member(dooya_dc90_screen->message, "channel", json_mknumber(channel, 0));
 	if(state == 0) {
@@ -146,9 +148,7 @@ static void createMessage(int id, int channel, int state) {
 
 
 static void parseCode(void) {
-
 	int i = 0;
-
 	for(i = 0; i < BINARY_LENGTH; i++) {
 		if(isLow(i)) {
 			binary[i] = 0;
@@ -157,10 +157,10 @@ static void parseCode(void) {
 		}
 	}
 
-	int channel = binToDecRev(binary, CHANNEL_START, CHANNEL_END);
-	int sync1 = binToDecRev(binary, SYNC1_START, SYNC1_END);
+	int unit = binToDecRev(binary, UNIT_START, UNIT_END);
+	int sync = binToDecRev(binary, SYNC_START, SYNC_END);
 	int id = binToDecRev(binary, ID_START, ID_END);
-	int sync2 = binToDecRev(binary, SYNC2_START, SYNC2_END);
+	int channel = binToDecRev(binary, CHANNEL_START, CHANNEL_END);
 	int stateRaw = binToDecRev(binary, STATE_START, STATE_END);
 	int state = DOOYA_INVALID_VALUE;
 
@@ -172,15 +172,13 @@ static void parseCode(void) {
 		state = 2;
 	}
 
-	if ((sync1 == DOOYA_DC90_SYNC1) && (sync2 == DOOYA_DC90_SYNC2) && (state != DOOYA_INVALID_VALUE)) {
-		createMessage(id, channel, state);
+	if ((sync == DOOYA_DC90_SYNC) && (state != DOOYA_INVALID_VALUE)) {
+		createMessage(unit, id, channel, state);
 	}
 }
 
 static void clearCode(void) {
-
 	int i = 0;
-
 	for(i = 0; i < BINARY_LENGTH; i++) {
 		createLow(i);
 	}
@@ -207,7 +205,7 @@ static void createFooter(void) {
 	dooya_dc90_screen->raw[RAW_LENGTH-1] = footer[0];
 }
 
-static void createRawCode(int id, int channel, int state) {
+static void createRawCode(int unit, int id, int channel, int state) {
 
 	int rawState;
 	if (state == 0) {
@@ -219,19 +217,22 @@ static void createRawCode(int id, int channel, int state) {
 	}
 	clearCode();
 	createHeader();
-	createBinarySequence(channel, CHANNEL_LENGTH, CHANNEL_END);
-	createBinarySequence(DOOYA_DC90_SYNC1, SYNC1_LENGTH, SYNC1_END);
+	createBinarySequence(unit, UNIT_LENGTH, UNIT_END);
+	createBinarySequence(DOOYA_DC90_SYNC, SYNC_LENGTH, SYNC_END);
 	createBinarySequence(id, ID_LENGTH, ID_END);
-	createBinarySequence(DOOYA_DC90_SYNC2, SYNC2_LENGTH, SYNC2_END);
+	createBinarySequence(channel, CHANNEL_LENGTH, CHANNEL_END);
 	createBinarySequence(rawState, STATE_LENGTH, STATE_END);
 	createFooter();
 }
 
 static int createCode(struct JsonNode *code) {
 
-	int id = DOOYA_INVALID_VALUE, channel = DOOYA_INVALID_VALUE, state = DOOYA_INVALID_VALUE;
+	int id = DOOYA_INVALID_VALUE, unit = DOOYA_INVALID_VALUE, state = DOOYA_INVALID_VALUE;
+	int channel = DOOYA_DEFAULT_CHANNEL;
 	double itmp = DOOYA_INVALID_VALUE;
 
+	if(json_find_number(code, "unit", &itmp) == 0)
+		unit = (int)round(itmp);
 	if(json_find_number(code, "id", &itmp) == 0)
 		id = (int)round(itmp);
 	if(json_find_number(code, "channel", &itmp) == 0)
@@ -243,12 +244,12 @@ static int createCode(struct JsonNode *code) {
 	if(json_find_number(code, "stop", &itmp) == 0)
 		state = 2;
 
-	if(id == DOOYA_INVALID_VALUE || channel == DOOYA_INVALID_VALUE || state == DOOYA_INVALID_VALUE) {
+	if(id == DOOYA_INVALID_VALUE || unit == DOOYA_INVALID_VALUE || state == DOOYA_INVALID_VALUE) {
 		logprintf(LOG_ERR, "dooya_dc90_screen: insufficient number of arguments");
 		return EXIT_FAILURE;
 	} else {
-		createMessage(id, channel, state);
-		createRawCode(id, channel, state);
+		createMessage(unit, id, channel, state);
+		createRawCode(unit, id, channel, state);
 		dooya_dc90_screen->rawlen = RAW_LENGTH;
 	}
 	return EXIT_SUCCESS;
@@ -256,9 +257,11 @@ static int createCode(struct JsonNode *code) {
 
 static void printHelp(void) {
 	printf("\t -d --down\t\t\tsend a down signal\n");
-	printf("\t -u --up\t\t\tsend an up signal\n");
+	printf("\t -p --up\t\t\tsend an up signal\n");
+	printf("\t -s --stop\t\t\tsend a stop signal\n");
 	printf("\t -i --id=id\t\t\tcontrol a device with this id\n");
-	printf("\t -c --channel=channel\t\t\tcontrol a device on this channel\n");
+	printf("\t -u --unit=cunit\t\t\tcontrol a device for this unit\n");
+	printf("\t -c --channel=channel\t\t\tcontrol a device on this channel (defaults to 1)\n");
 }
 
 #if !defined(MODULE) && !defined(_WIN32)
@@ -277,9 +280,10 @@ void dooyaDC90ScreenInit(void) {
 	dooya_dc90_screen->mingaplen = MIN_PULSE_LENGTH * PULSE_DIV;
 
 	options_add(&dooya_dc90_screen->options, 'd', "down", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
-	options_add(&dooya_dc90_screen->options, 'u', "up", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
+	options_add(&dooya_dc90_screen->options, 'p', "up", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
 	options_add(&dooya_dc90_screen->options, 's', "stop", OPTION_NO_VALUE, DEVICES_STATE, JSON_STRING, NULL, NULL);
 	options_add(&dooya_dc90_screen->options, 'i', "id", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "[0-9]");
+	options_add(&dooya_dc90_screen->options, 'u', "unit", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "[0-9]");
 	options_add(&dooya_dc90_screen->options, 'c', "channel", OPTION_HAS_VALUE, DEVICES_ID, JSON_NUMBER, NULL, "[0-9]");
 
 	dooya_dc90_screen->parseCode=&parseCode;
@@ -291,7 +295,7 @@ void dooyaDC90ScreenInit(void) {
 #if defined(MODULE) && !defined(_WIN32)
 void compatibility(struct module_t *module) {
 	module->name = "Dooya DC90 screen";
-	module->version = "1.0";
+	module->version = "1.1";
 	module->reqversion = "6.0";
 	module->reqcommit = "84";
 }
