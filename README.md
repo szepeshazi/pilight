@@ -4,4 +4,5 @@ pilight version 7.0
 <img alt="PayPal" title="PayPal" border="0" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" style="max-width:100%;"></a>
 <a href="https://flattr.com/submit/auto?user_id=pilight&url=http%3A%2F%2Fwww.pilight.org" target="_blank"><img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0"></a>
 
-Visit http://www.pilight.org or http://wiki.pilight.org for more information.
+Visit http://www.pilight.org or http://wiki.pilight.org for more information
+.
